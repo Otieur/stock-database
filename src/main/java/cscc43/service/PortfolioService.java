@@ -226,14 +226,25 @@ public final class PortfolioService {
 
     private void upsertHolding(Connection connection, long portfolioId, String symbol, BigDecimal shares,
                                TradeSide side) throws SQLException {
-        BigDecimal delta = side == TradeSide.BUY ? shares : shares.negate();
-        try (PreparedStatement statement = connection.prepareStatement(
-            "insert into portfolio_holdings (portfolio_id, symbol, shares) values (?, upper(?), ?) "
-                + "on conflict (portfolio_id, symbol) do update set shares = portfolio_holdings.shares + excluded.shares")) {
-            statement.setLong(1, portfolioId);
-            statement.setString(2, symbol);
-            statement.setBigDecimal(3, delta);
-            statement.executeUpdate();
+        if (side == TradeSide.BUY) {
+            try (PreparedStatement statement = connection.prepareStatement(
+                "insert into portfolio_holdings (portfolio_id, symbol, shares) values (?, upper(?), ?) "
+                    + "on conflict (portfolio_id, symbol) do update set shares = portfolio_holdings.shares + excluded.shares")) {
+                statement.setLong(1, portfolioId);
+                statement.setString(2, symbol);
+                statement.setBigDecimal(3, shares);
+                statement.executeUpdate();
+            }
+        } else {
+            try (PreparedStatement statement = connection.prepareStatement(
+                "update portfolio_holdings set shares = shares - ? where portfolio_id = ? and symbol = upper(?)")) {
+                statement.setBigDecimal(1, shares);
+                statement.setLong(2, portfolioId);
+                statement.setString(3, symbol);
+                if (statement.executeUpdate() == 0) {
+                    throw new IllegalStateException("Holding not found during sell");
+                }
+            }
         }
         try (PreparedStatement cleanup = connection.prepareStatement(
             "delete from portfolio_holdings where portfolio_id = ? and symbol = upper(?) and shares <= 0")) {

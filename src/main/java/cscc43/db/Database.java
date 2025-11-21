@@ -44,6 +44,9 @@ public final class Database implements Closeable {
                 return result;
             } catch (Exception exception) {
                 connection.rollback();
+                if (exception instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
+                }
                 if (exception instanceof SQLException sqlException) {
                     throw new DatabaseException(sqlException);
                 }

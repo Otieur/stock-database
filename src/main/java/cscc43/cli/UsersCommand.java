@@ -47,7 +47,12 @@ public final class UsersCommand implements Runnable {
         @CommandLine.Option(names = "--email", description = "Email address", required = true)
         String email;
 
-        @CommandLine.Option(names = "--password", description = "Plaintext password", required = true, interactive = true)
+        @CommandLine.Option(
+            names = "--password",
+            description = "Plaintext password",
+            required = true,
+            interactive = true,
+            arity = "0..1")
         String password;
 
         @Override

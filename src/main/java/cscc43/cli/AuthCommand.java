@@ -52,7 +52,11 @@ public final class AuthCommand implements Runnable {
         @CommandLine.Option(names = "--email", required = true)
         String email;
 
-        @CommandLine.Option(names = "--password", required = true, interactive = true)
+        @CommandLine.Option(
+            names = "--password",
+            required = true,
+            interactive = true,
+            arity = "0..1")
         String password;
 
         @Override

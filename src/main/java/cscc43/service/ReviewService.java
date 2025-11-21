@@ -62,17 +62,20 @@ public final class ReviewService {
         database.inTransaction(connection -> {
             StockListAccess access = stockListService.findAccessibleList(requesterId, listId)
                 .orElseThrow(() -> new IllegalArgumentException("Stock list not accessible"));
-            if (access.list().ownerId() != requesterId && reviewerId != requesterId) {
+            boolean actorIsOwner = access.list().ownerId() == requesterId;
+            boolean actorIsReviewer = reviewerId == requesterId;
+            if (!actorIsOwner && !actorIsReviewer) {
                 throw new IllegalArgumentException("Only the reviewer or list owner can delete the review");
             }
-            ensureReviewer(connection, reviewerId, listId);
+            int deleted;
             try (PreparedStatement statement = connection.prepareStatement(
                 "delete from reviews where list_id = ? and reviewer_id = ?")) {
                 statement.setLong(1, listId);
                 statement.setLong(2, reviewerId);
-                if (statement.executeUpdate() == 0) {
-                    throw new IllegalArgumentException("No review to delete");
-                }
+                deleted = statement.executeUpdate();
+            }
+            if (deleted == 0) {
+                throw new IllegalArgumentException("No review to delete");
             }
             return null;
         });
@@ -104,19 +107,6 @@ public final class ReviewService {
             }
         } catch (SQLException exception) {
             throw new DatabaseException(exception);
-        }
-    }
-
-    private void ensureReviewer(Connection connection, long reviewerId, long listId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-            "select 1 from reviews where list_id = ? and reviewer_id = ?")) {
-            statement.setLong(1, listId);
-            statement.setLong(2, reviewerId);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next()) {
-                    throw new IllegalArgumentException("Only the reviewer or list owner can delete the review");
-                }
-            }
         }
     }
 
