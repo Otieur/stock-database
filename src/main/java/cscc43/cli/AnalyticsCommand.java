@@ -13,6 +13,8 @@ import picocli.CommandLine;
 
 import java.io.PrintWriter;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -26,6 +28,8 @@ import java.util.concurrent.Callable;
     AnalyticsCommand.Predict.class
 })
 public final class AnalyticsCommand implements Runnable {
+
+    private static final MathContext DISPLAY_PRECISION = new MathContext(6, RoundingMode.HALF_UP);
 
     private final AuthContext authContext;
     private final AnalyticsService analyticsService;
@@ -82,7 +86,7 @@ public final class AnalyticsCommand implements Runnable {
         if (value == null) {
             return "-";
         }
-        return value.stripTrailingZeros().toPlainString();
+        return value.round(DISPLAY_PRECISION).stripTrailingZeros().toPlainString();
     }
 
     @CommandLine.Command(name = "portfolio", description = "Compute portfolio statistics")

@@ -55,7 +55,7 @@ public final class AnalyticsService {
     }
 
     public List<PriceHistoryPoint> history(String symbol, int lookbackDays) {
-        LocalDate end = LocalDate.now();
+        LocalDate end = windowEnd(List.of(symbol));
         LocalDate start = end.minusDays(lookbackDays);
         return priceService.history(symbol, start, end);
     }
@@ -100,11 +100,19 @@ public final class AnalyticsService {
         return predictions;
     }
 
+    /**
+     * The lookback window ends on the most recent day that has a price for the requested symbols,
+     * so the analytics also work on a price history that stops in the past.
+     */
+    private LocalDate windowEnd(List<String> symbols) {
+        return priceService.latestDay(symbols).orElseGet(LocalDate::now);
+    }
+
     private PortfolioStatistics statisticsForSymbols(List<String> symbols, int lookbackDays, String marketSymbol) {
         if (symbols.isEmpty()) {
             return new PortfolioStatistics(List.of(), List.of());
         }
-        LocalDate end = LocalDate.now();
+        LocalDate end = windowEnd(symbols);
         LocalDate start = end.minusDays(Math.max(lookbackDays, 1));
         try (Connection connection = database.getConnection()) {
             Array symbolsArray = connection.createArrayOf("text", symbols.stream().map(String::toUpperCase).toArray());
@@ -144,7 +152,8 @@ public final class AnalyticsService {
             + " case when cs.avg_close = 0 then null else cs.volatility / cs.avg_close end as cov,"
             + " case when bs.market_variance is null or bs.market_variance = 0 then null"
             + "      else bs.covariance / bs.market_variance end as beta"
-            + " from close_stats cs left join beta_stats bs on bs.symbol = cs.symbol";
+            + " from close_stats cs left join beta_stats bs on bs.symbol = cs.symbol"
+            + " order by cs.symbol";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setArray(1, symbolsArray);
             statement.setObject(2, start);
@@ -181,7 +190,8 @@ public final class AnalyticsService {
             + " covar_pop(a.ret, b.ret) as covariance, corr(a.ret, b.ret) as correlation"
             + " from returns_filtered a join returns_filtered b on a.day = b.day"
             + " where a.symbol <= b.symbol"
-            + " group by a.symbol, b.symbol";
+            + " group by a.symbol, b.symbol"
+            + " order by a.symbol, b.symbol";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setArray(1, symbolsArray);
             statement.setObject(2, start);

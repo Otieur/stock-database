@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -97,6 +98,29 @@ public final class PriceService {
                         resultSet.getBigDecimal("close")));
                 }
                 return history;
+            }
+        } catch (SQLException exception) {
+            throw new DatabaseException(exception);
+        }
+    }
+
+    /**
+     * Returns the most recent day that has a price for any of the given symbols.
+     */
+    public Optional<LocalDate> latestDay(List<String> symbols) {
+        if (symbols.isEmpty()) {
+            return Optional.empty();
+        }
+        String sql = "select max(day) from unified_prices where symbol = any(?)";
+        try (Connection connection = database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setArray(1, connection.createArrayOf("text",
+                symbols.stream().map(String::toUpperCase).toArray()));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return Optional.ofNullable(resultSet.getObject(1, LocalDate.class));
+                }
+                return Optional.empty();
             }
         } catch (SQLException exception) {
             throw new DatabaseException(exception);
